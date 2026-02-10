@@ -133,7 +133,9 @@ ID2D1Bitmap* bmpHeroR[16]{ nullptr };
 
 //////////////////////////////////////////////////////////
 
-dll::GRID GameField{};
+dll::RANDIT RandIt{};
+
+dll::GRID* GameField{ nullptr };
 
 dll::PIGS* Hero{ nullptr };
 std::vector<dll::PIGS*> vEvils;
@@ -223,6 +225,76 @@ void ErrExit(int what)
 	std::remove(tmp_file);
 	exit(1);
 }
+
+void GameOver()
+{
+	PlaySound(NULL, NULL, NULL);
+	KillTimer(bHwnd, bTimer);
+
+
+
+	bMsg.message = WM_QUIT;
+	bMsg.message = 0;
+}
+void InitGame()
+{
+	name_set = false;
+	dizzy = false;
+
+	wcscat_s(current_player, L"TARLYO");
+
+	score = 0;
+	level = 1;
+	dizzy_counter = 0;
+
+	if (GameField)delete GameField;
+	GameField = new dll::GRID();
+	
+	ClearMem(&Hero);
+	Hero = dll::PIGS::create(pigs::hero, RandIt(10.0f, 100.0f), RandIt(sky + 10.0f, ground - 90.0f));
+
+	if (!vEvils.empty())for (int i = 0; i < vEvils.size(); ++i)ClearMem(&vEvils[i]);
+	if (!vFoods.empty())for (int i = 0; i < vFoods.size(); ++i)ClearMem(&vFoods[i]);
+	if (!vObstacles.empty())for (int i = 0; i < vObstacles.size(); ++i)ClearMem(&vObstacles[i]);
+
+	for (int i = 0; i <= 10; ++i)
+	{
+		bool is_ok = false;
+		while (!is_ok)
+		{
+			is_ok = true;
+
+			dll::OBSTACLES* dummy{ nullptr };
+
+			if (RandIt(0, 8) == 4)dummy = dll::OBSTACLES::create(obstacles::fence, RandIt(-300.0f, scr_width + 300.0f),
+				RandIt(-100.0f, ground + 100.0f));
+			else dummy = dll::OBSTACLES::create(obstacles::rock, RandIt(-300.0f, scr_width + 300.0f),
+				RandIt(-100.0f, ground + 100.0f));
+
+			if (vObstacles.empty())vObstacles.push_back(dummy);
+			else
+			{
+				for (int i = 0; i < vObstacles.size(); ++i)
+				{
+					FRECT existing{ vObstacles[i]->start.x,vObstacles[i]->start.y,vObstacles[i]->end.x,vObstacles[i]->end.y };
+					FRECT new_obst{ dummy->start.x,dummy->start.y,dummy->end.x,dummy->end.y };
+
+					if (dll::Intersect(existing, new_obst))
+					{
+						is_ok = false;
+						break;
+					}
+				}
+
+				if (is_ok)vObstacles.push_back(dummy);
+			}
+		}
+	}
+
+
+
+}
+
 
 
 
