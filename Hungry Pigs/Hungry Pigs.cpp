@@ -531,6 +531,315 @@ void CreateResources()
 	if (GetSystemMetrics(SM_CXSCREEN) < win_x + (int)(scr_width) || GetSystemMetrics(SM_CYSCREEN) < win_y
 		+ (int)(scr_height))ErrExit(eScreen);
 
+	mainIcon = (HICON)(LoadImage(NULL, L".\\res\\main.ico", IMAGE_ICON, 255, 255, LR_LOADFROMFILE));
+	if (!mainIcon)ErrExit(eIcon);
+	mainCursor = LoadCursorFromFile(L".\\res\\main.ani");
+	outCursor = LoadCursorFromFile(L".\\res\\out.ani");
+	if (!mainCursor || !outCursor)ErrExit(eCursor);
+
+	bWinClass.lpszClassName = bWinClassName;
+	bWinClass.hInstance = bIns;
+	bWinClass.lpfnWndProc = &WinProc;
+	bWinClass.hbrBackground = CreateSolidBrush(RGB(180, 180, 180));
+	bWinClass.hIcon = mainIcon;
+	bWinClass.hCursor = mainCursor;
+	bWinClass.style = CS_DROPSHADOW;
+
+	if (!RegisterClass(&bWinClass))ErrExit(eClass);
+
+	bHwnd = CreateWindow(bWinClassName, L"ГЛАДНИ ПРАСЕТА !", WS_CAPTION | WS_SYSMENU, win_x, win_y, (int)(scr_width),
+		(int)(scr_height), NULL, NULL, bIns, NULL);
+	if (!bHwnd)ErrExit(eWindow);
+	else
+	{
+		ShowWindow(bHwnd, SW_SHOWDEFAULT);
+
+		HRESULT hr = D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, &iFactory);
+		if (hr != S_OK)
+		{
+			LogErr(L"Error creating D2D1 Factory !");
+			ErrExit(eD2D);
+		}
+
+		if (iFactory)
+		{
+			hr = iFactory->CreateHwndRenderTarget(D2D1::RenderTargetProperties(), D2D1::HwndRenderTargetProperties(bHwnd,
+				D2D1::SizeU((UINT32)(scr_width), (UINT32)(scr_height))), &Draw);
+			if (hr != S_OK)
+			{
+				LogErr(L"Error creating D2D1 HwndRenderTarget !");
+				ErrExit(eD2D);
+			}
+		}
+
+		if (Draw)
+		{
+			RECT clR{};
+			GetClientRect(bHwnd, &clR);
+
+			D2D1_SIZE_F D2D1Size{ Draw->GetSize() };
+
+			x_scale = D2D1Size.width / (clR.right - clR.left);
+			y_scale = D2D1Size.height / (clR.bottom - clR.top);
+
+			D2D1_GRADIENT_STOP gStops[2]{};
+			ID2D1GradientStopCollection* gColl{ nullptr };
+
+			gStops[0].position = 0;
+			gStops[0].color = D2D1::ColorF(D2D1::ColorF::Chocolate);
+			gStops[1].position = 1.0f;
+			gStops[1].color = D2D1::ColorF(D2D1::ColorF::Maroon);
+
+			hr = Draw->CreateGradientStopCollection(gStops, 2, &gColl);
+			if (hr != S_OK)
+			{
+				LogErr(L"Error creating D2D1 GradientStopCollection !");
+				ErrExit(eD2D);
+			}
+
+			if (gColl)
+			{
+				hr = Draw->CreateRadialGradientBrush(D2D1::RadialGradientBrushProperties(D2D1::Point2F((b1Rect.right -
+						b1Rect.left) / 2.0f, 25.0f), D2D1::Point2F(0, 0), (b1Rect.right - b1Rect.left) / 2.0f, 25.0f),
+						gColl, &b1BckgBrush);
+				hr = Draw->CreateRadialGradientBrush(D2D1::RadialGradientBrushProperties(D2D1::Point2F((b2Rect.right -
+					b2Rect.left) / 2.0f, 25.0f), D2D1::Point2F(0, 0), (b2Rect.right - b2Rect.left) / 2.0f, 25.0f),
+					gColl, &b2BckgBrush);
+				hr = Draw->CreateRadialGradientBrush(D2D1::RadialGradientBrushProperties(D2D1::Point2F((b3Rect.right -
+					b3Rect.left) / 2.0f, 25.0f), D2D1::Point2F(0, 0), (b3Rect.right - b3Rect.left) / 2.0f, 25.0f),
+					gColl, &b3BckgBrush);
+				if (hr != S_OK)
+				{
+					LogErr(L"Error creating D2D1 RadialGradientBrush !");
+					ErrExit(eD2D);
+				}
+				
+				ClearMem(&gColl);
+			}
+
+			hr = Draw->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::DarkKhaki), &statBrush);
+			hr = Draw->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Chartreuse), &hgltBrush);
+			hr = Draw->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Navy), &txtBrush);
+			hr = Draw->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::MediumSpringGreen), &inactBrush);
+
+			if (hr != S_OK)
+			{
+				LogErr(L"Error creating D2D1 SolidColorBrush !");
+				ErrExit(eD2D);
+			}
+
+			bmpDizzy = Load(L".\\res\\img\\dizzy.png", Draw);
+			if (!bmpDizzy)
+			{
+				LogErr(L"Error loading bmpDizzy !");
+				ErrExit(eD2D);
+			}
+			bmpLogo = Load(L".\\res\\img\\Logo.png", Draw);
+			if (!bmpLogo)
+			{
+				LogErr(L"Error loading bmpLogo !");
+				ErrExit(eD2D);
+			}
+			bmpFence = Load(L".\\res\\img\\Fence.png", Draw);
+			if (!bmpFence)
+			{
+				LogErr(L"Error loading bmpFence !");
+				ErrExit(eD2D);
+			}
+			bmpRock = Load(L".\\res\\img\\Rock.png", Draw);
+			if (!bmpRock)
+			{
+				LogErr(L"Error loading bmpRock !");
+				ErrExit(eD2D);
+			}
+
+			bmpBackon = Load(L".\\res\\img\\food\\Bacon.png", Draw);
+			if (!bmpBackon)
+			{
+				LogErr(L"Error loading bmpBackon !");
+				ErrExit(eD2D);
+			}
+			bmpCheese = Load(L".\\res\\img\\food\\Cheese.png", Draw);
+			if (!bmpCheese)
+			{
+				LogErr(L"Error loading bmpCheese !");
+				ErrExit(eD2D);
+			}
+			bmpPizza = Load(L".\\res\\img\\food\\Pizza.png", Draw);
+			if (!bmpCheese)
+			{
+				LogErr(L"Error loading bmpPizza !");
+				ErrExit(eD2D);
+			}
+			bmpFish = Load(L".\\res\\img\\food\\Fish.png", Draw);
+			if (!bmpFish)
+			{
+				LogErr(L"Error loading bmpFish !");
+				ErrExit(eD2D);
+			}
+			bmpRotten = Load(L".\\res\\img\\food\\Rotten.png", Draw);
+			if (!bmpRotten)
+			{
+				LogErr(L"Error loading bmpRotten !");
+				ErrExit(eD2D);
+			}
+
+			bmpDirt = Load(L".\\res\\img\\tiles\\dirt.png", Draw);
+			if (!bmpDirt)
+			{
+				LogErr(L"Error loading bmpDirt !");
+				ErrExit(eD2D);
+			}
+			bmpForest = Load(L".\\res\\img\\tiles\\Forest.png", Draw);
+			if (!bmpForest)
+			{
+				LogErr(L"Error loading bmpForest !");
+				ErrExit(eD2D);
+			}
+			bmpPath = Load(L".\\res\\img\\tiles\\Path.png", Draw);
+			if (!bmpPath)
+			{
+				LogErr(L"Error loading bmpPath !");
+				ErrExit(eD2D);
+			}
+			bmpLava = Load(L".\\res\\img\\tiles\\Lava.png", Draw);
+			if (!bmpLava)
+			{
+				LogErr(L"Error loading bmpLava !");
+				ErrExit(eD2D);
+			}
+			bmpWater = Load(L".\\res\\img\\tiles\\Water.png", Draw);
+			if (!bmpWater)
+			{
+				LogErr(L"Error loading bmpWater !");
+				ErrExit(eD2D);
+			}
+
+			for (int i = 0; i < 18; ++i)
+			{
+				wchar_t name[50]{ L".\\res\\img\\intro\\" };
+				wchar_t add[5]{ L"\0" };
+				wsprintf(add, L"%d", i);
+
+				wcscat_s(name, add);
+				wcscat_s(name, L".png");
+
+				bmpIntro[i] = Load(name, Draw);
+				if (!bmpIntro[i])
+				{
+					LogErr(L"Error loading bmpIntro !");
+					ErrExit(eD2D);
+				}
+			}
+
+			for (int i = 0; i < 16; ++i)
+			{
+				wchar_t name[50]{ L".\\res\\img\\hero\\l\\" };
+				wchar_t add[5]{ L"\0" };
+				wsprintf(add, L"%d", i);
+
+				wcscat_s(name, add);
+				wcscat_s(name, L".png");
+
+				bmpHeroL[i] = Load(name, Draw);
+				if (!bmpHeroL[i])
+				{
+					LogErr(L"Error loading bmpHeroL !");
+					ErrExit(eD2D);
+				}
+			}
+			for (int i = 0; i < 16; ++i)
+			{
+				wchar_t name[50]{ L".\\res\\img\\hero\\r\\" };
+				wchar_t add[5]{ L"\0" };
+				wsprintf(add, L"%d", i);
+
+				wcscat_s(name, add);
+				wcscat_s(name, L".png");
+
+				bmpHeroR[i] = Load(name, Draw);
+				if (!bmpHeroR[i])
+				{
+					LogErr(L"Error loading bmpHeroR !");
+					ErrExit(eD2D);
+				}
+			}
+
+			for (int i = 0; i < 2; ++i)
+			{
+				wchar_t name[50]{ L".\\res\\img\\evils\\1\\l\\" };
+				wchar_t add[5]{ L"\0" };
+				wsprintf(add, L"%d", i);
+
+				wcscat_s(name, add);
+				wcscat_s(name, L".png");
+
+				bmpFlyL[i] = Load(name, Draw);
+				if (!bmpFlyL[i])
+				{
+					LogErr(L"Error loading bmpFlyL !");
+					ErrExit(eD2D);
+				}
+			}
+			for (int i = 0; i < 2; ++i)
+			{
+				wchar_t name[50]{ L".\\res\\img\\evils\\1\\r\\" };
+				wchar_t add[5]{ L"\0" };
+				wsprintf(add, L"%d", i);
+
+				wcscat_s(name, add);
+				wcscat_s(name, L".png");
+
+				bmpFlyR[i] = Load(name, Draw);
+				if (!bmpFlyR[i])
+				{
+					LogErr(L"Error loading bmpFlyR !");
+					ErrExit(eD2D);
+				}
+			}
+
+			for (int i = 0; i < 5; ++i)
+			{
+				wchar_t name[50]{ L".\\res\\img\\evils\\2\\l\\" };
+				wchar_t add[5]{ L"\0" };
+				wsprintf(add, L"%d", i);
+
+				wcscat_s(name, add);
+				wcscat_s(name, L".png");
+
+				bmpToughL[i] = Load(name, Draw);
+				if (!bmpToughL[i])
+				{
+					LogErr(L"Error loading bmpToughL !");
+					ErrExit(eD2D);
+				}
+			}
+			for (int i = 0; i < 5; ++i)
+			{
+				wchar_t name[50]{ L".\\res\\img\\evils\\2\\r\\" };
+				wchar_t add[5]{ L"\0" };
+				wsprintf(add, L"%d", i);
+
+				wcscat_s(name, add);
+				wcscat_s(name, L".png");
+
+				bmpToughR[i] = Load(name, Draw);
+				if (!bmpToughR[i])
+				{
+					LogErr(L"Error loading bmpToughR !");
+					ErrExit(eD2D);
+				}
+			}
+
+
+		}
+
+
+
+
+	}
+
+
 
 
 
