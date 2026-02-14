@@ -26,7 +26,7 @@ constexpr wchar_t Ltmp_file[] { L".\\res\\data\\temp.dat" };
 constexpr wchar_t help_file[]{ L".\\res\\data\\help.dat" };
 constexpr wchar_t record_file[]{ L".\\res\\data\\record.dat" };
 constexpr wchar_t save_file[]{ L".\\res\\data\\save.dat" };
-constexpr wchar_t sound_file[]{ L".\\res\\snd\\main.dat" };
+constexpr wchar_t sound_file[]{ L".\\res\\snd\\main.wav" };
 
 constexpr int mNew{ 1001 };
 constexpr int mLvl{ 1002 };
@@ -160,7 +160,9 @@ template<HasRelease T>bool ClearMem(T** var)
 	{
 		(*var)->Release();
 		(*var) = nullptr;
+		return true;
 	}
+	return false;
 };
 void LogErr(const wchar_t* what)
 {
@@ -239,7 +241,8 @@ void GameOver()
 
 
 	bMsg.message = WM_QUIT;
-	bMsg.message = 0;
+	bMsg.wParam = 0;
+
 }
 void InitGame()
 {
@@ -257,13 +260,17 @@ void InitGame()
 
 	if (GameField)delete GameField;
 	GameField = new dll::GRID();
+
 	
 	ClearMem(&Hero);
 	Hero = dll::PIGS::create(pigs::hero, RandIt(10.0f, 100.0f), RandIt(sky + 10.0f, ground - 90.0f));
 
 	if (!vEvils.empty())for (int i = 0; i < vEvils.size(); ++i)ClearMem(&vEvils[i]);
+	vEvils.clear();
 	if (!vFoods.empty())for (int i = 0; i < vFoods.size(); ++i)ClearMem(&vFoods[i]);
+	vFoods.clear();
 	if (!vObstacles.empty())for (int i = 0; i < vObstacles.size(); ++i)ClearMem(&vObstacles[i]);
+	vObstacles.clear();
 
 	for (int i = 0; i <= 10; ++i)
 	{
@@ -282,14 +289,15 @@ void InitGame()
 			if (vObstacles.empty())vObstacles.push_back(dummy);
 			else
 			{
-				for (int i = 0; i < vObstacles.size(); ++i)
+				for (int j = 0; j < vObstacles.size(); ++j)
 				{
-					FRECT existing{ vObstacles[i]->start.x,vObstacles[i]->start.y,vObstacles[i]->end.x,vObstacles[i]->end.y };
+					FRECT existing{ vObstacles[j]->start.x,vObstacles[j]->start.y,vObstacles[j]->end.x,vObstacles[j]->end.y };
 					FRECT new_obst{ dummy->start.x,dummy->start.y,dummy->end.x,dummy->end.y };
 
 					if (dll::Intersect(existing, new_obst))
 					{
 						is_ok = false;
+						dummy->Release();
 						break;
 					}
 				}
@@ -298,10 +306,23 @@ void InitGame()
 			}
 		}
 	}
-
-
-
 }
+int IntroFrame()
+{
+	static int frame_delay{ 4 };
+	static int frame{ 0 };
+
+	--frame_delay;
+	if (frame_delay <= 0)
+	{
+		frame_delay = 4;
+		++frame;
+		if (frame > 17)frame = 0;
+	}
+
+	return frame;
+}
+
 
 INT_PTR CALLBACK DlgProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -378,7 +399,7 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
 			pause = false;
 			break;
 		}
-		InitGame();
+		GameOver();
 		break;
 
 	case WM_PAINT:
@@ -619,7 +640,7 @@ void CreateResources()
 
 			hr = Draw->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::DarkKhaki), &statBrush);
 			hr = Draw->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Chartreuse), &hgltBrush);
-			hr = Draw->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Navy), &txtBrush);
+			hr = Draw->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Orange), &txtBrush);
 			hr = Draw->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::MediumSpringGreen), &inactBrush);
 
 			if (hr != S_OK)
@@ -831,24 +852,107 @@ void CreateResources()
 				}
 			}
 
+			for (int i = 0; i < 12; ++i)
+			{
+				wchar_t name[50]{ L".\\res\\img\\evils\\3\\l\\" };
+				wchar_t add[5]{ L"\0" };
+				wsprintf(add, L"%d", i);
 
+				wcscat_s(name, add);
+				wcscat_s(name, L".png");
+
+				bmpRunnerL[i] = Load(name, Draw);
+				if (!bmpRunnerL[i])
+				{
+					LogErr(L"Error loading bmpRunnerL !");
+					ErrExit(eD2D);
+				}
+			}
+			for (int i = 0; i < 12; ++i)
+			{
+				wchar_t name[50]{ L".\\res\\img\\evils\\3\\r\\" };
+				wchar_t add[5]{ L"\0" };
+				wsprintf(add, L"%d", i);
+
+				wcscat_s(name, add);
+				wcscat_s(name, L".png");
+
+				bmpRunnerR[i] = Load(name, Draw);
+				if (!bmpRunnerR[i])
+				{
+					LogErr(L"Error loading bmpRunnerR !");
+					ErrExit(eD2D);
+				}
+			}
+
+			for (int i = 0; i < 11; ++i)
+			{
+				wchar_t name[50]{ L".\\res\\img\\evils\\4\\l\\" };
+				wchar_t add[5]{ L"\0" };
+				wsprintf(add, L"%d", i);
+
+				wcscat_s(name, add);
+				wcscat_s(name, L".png");
+
+				bmpFreakL[i] = Load(name, Draw);
+				if (!bmpFreakL[i])
+				{
+					LogErr(L"Error loading bmpFreakL !");
+					ErrExit(eD2D);
+				}
+			}
+			for (int i = 0; i < 11; ++i)
+			{
+				wchar_t name[50]{ L".\\res\\img\\evils\\4\\r\\" };
+				wchar_t add[5]{ L"\0" };
+				wsprintf(add, L"%d", i);
+
+				wcscat_s(name, add);
+				wcscat_s(name, L".png");
+
+				bmpFreakR[i] = Load(name, Draw);
+				if (!bmpFreakR[i])
+				{
+					LogErr(L"Error loading bmpFreakR !");
+					ErrExit(eD2D);
+				}
+			}
 		}
 
+		hr = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory),
+			reinterpret_cast<IUnknown**>(&iWriteFactory));
+		if (hr != S_OK)
+		{
+			LogErr(L"Error creating D2D1 WriteFactory !");
+			ErrExit(eD2D);
+		}
 
-
-
+		if (iWriteFactory)
+		{
+			hr = iWriteFactory->CreateTextFormat(L"Comic Sans MS", NULL, DWRITE_FONT_WEIGHT_BLACK, DWRITE_FONT_STYLE_NORMAL,
+				DWRITE_FONT_STRETCH_EXPANDED, 18.0f, L"", &nrmFormat);
+			hr = iWriteFactory->CreateTextFormat(L"Comic Sans MS", NULL, DWRITE_FONT_WEIGHT_BLACK, DWRITE_FONT_STYLE_NORMAL,
+				DWRITE_FONT_STRETCH_EXPANDED, 32.0f, L"", &midFormat);
+			hr = iWriteFactory->CreateTextFormat(L"Comic Sans MS", NULL, DWRITE_FONT_WEIGHT_BLACK, DWRITE_FONT_STYLE_NORMAL,
+				DWRITE_FONT_STRETCH_EXPANDED, 72.0f, L"", &bigFormat);
+			if (hr != S_OK)
+			{
+				LogErr(L"Error creating D2D1 WriteFactory Text Formats !");
+				ErrExit(eD2D);
+			}
+		}
 	}
 
+	PlaySound(L".\\res\\snd\\intro.wav", NULL, SND_ASYNC);
 
-
-
-
-
-
-
-
-
-
+	for (int i = 0; i < 300; ++i)
+	{
+		Draw->BeginDraw();
+		Draw->Clear(D2D1::ColorF(D2D1::ColorF::AliceBlue));
+		Draw->DrawBitmap(bmpIntro[IntroFrame()], D2D1::RectF(0, 0, scr_width, scr_height));
+		Draw->DrawBitmap(bmpLogo, D2D1::RectF(0, 0, scr_width, scr_height));
+		Draw->EndDraw();
+	}
 }
 
 
@@ -870,11 +974,115 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 	CreateResources();
 	PlaySound(sound_file, NULL, SND_ASYNC | SND_LOOP);
 
+	while (bMsg.message != WM_QUIT)
+	{
+		if ((bRet = PeekMessage(&bMsg, NULL, NULL, NULL, PM_REMOVE)) != 0)
+		{
+			if (bRet == -1)ErrExit(eMsg);
+			TranslateMessage(&bMsg);
+			DispatchMessage(&bMsg);
+		}
+
+		if (pause)
+		{
+			if (show_help)continue;
+
+			if (bigFormat && txtBrush)
+			{
+				Draw->BeginDraw();
+				Draw->Clear(D2D1::ColorF(D2D1::ColorF::LightPink));
+				Draw->DrawBitmap(bmpIntro[IntroFrame()], D2D1::RectF(0, 0, scr_width, scr_height));
+				Draw->DrawTextW(L"ПАУЗА", 6, bigFormat, D2D1::RectF(scr_width / 2.0f - 100.0f, scr_height / 2.0f - 50.0f,
+					scr_width, scr_height), txtBrush);
+				Draw->EndDraw();
+				continue;
+			}
+		}
+
+		//////////////////////////////////////////////////////////////////////
+
+		Draw->BeginDraw();
+		Draw->Clear(D2D1::ColorF(D2D1::ColorF::AliceBlue));
+
+		if (nrmFormat && bigFormat && statBrush && txtBrush && inactBrush && hgltBrush && b1BckgBrush && b2BckgBrush 
+			&& b3BckgBrush)
+		{
+			Draw->FillRectangle(D2D1::RectF(0, 0, scr_width, 50.0f), statBrush);
+			Draw->FillRoundedRectangle(D2D1::RoundedRect(b1Rect, 15.0f, 25.0f), b1BckgBrush);
+			Draw->FillRoundedRectangle(D2D1::RoundedRect(b2Rect, 15.0f, 25.0f), b2BckgBrush);
+			Draw->FillRoundedRectangle(D2D1::RoundedRect(b3Rect, 15.0f, 25.0f), b3BckgBrush);
+
+			if (name_set)Draw->DrawTextW(L"МОЕТО ПРАСЕ", 12, nrmFormat, b1TxtRect, inactBrush);
+			else
+			{
+				if (!b1Hglt)Draw->DrawTextW(L"МОЕТО ПРАСЕ", 12, nrmFormat, b1TxtRect, txtBrush);
+				else Draw->DrawTextW(L"МОЕТО ПРАСЕ", 12, nrmFormat, b1TxtRect, hgltBrush);
+			}
+
+			if (!b2Hglt)Draw->DrawTextW(L"ЗВУЦИ ON / OFF", 15, nrmFormat, b2TxtRect, txtBrush);
+			else Draw->DrawTextW(L"ЗВУЦИ ON / OFF", 15, nrmFormat, b2TxtRect, hgltBrush);
+
+			if (!b3Hglt)Draw->DrawTextW(L"ПОМОЩ ЗА ИГРАТА", 16, nrmFormat, b3TxtRect, txtBrush);
+			else Draw->DrawTextW(L"ПОМОЩ ЗА ИГРАТА", 16, nrmFormat, b3TxtRect, hgltBrush);
+		}
+		
+		if (GameField)
+		{
+			for (int rows = 0; rows < GRID_MAX_ROWS; ++rows)
+			{
+				for (int cols = 0; cols < GRID_MAX_COLS; ++cols)
+				{
+					FRECT FTileR{ GameField->get_dims(rows,cols) };
+					D2D1_RECT_F tileR{};
+					tileR.left = FTileR.left;
+					tileR.top = FTileR.up;
+					tileR.right = FTileR.right;
+					tileR.bottom = FTileR.down;
+
+					if (tileR.top >= 50.0f)
+					{
+						switch (GameField->get_type(rows, cols))
+						{
+						case tiles::dirt:
+							Draw->DrawBitmap(bmpDirt, tileR);
+							break;
+
+						case tiles::forest:
+							Draw->DrawBitmap(bmpForest, tileR);
+							break;
+
+						case tiles::lava:
+							Draw->DrawBitmap(bmpLava, tileR);
+							break;
+
+						case tiles::path:
+							Draw->DrawBitmap(bmpPath, tileR);
+							break;
+
+						case tiles::water:
+							Draw->DrawBitmap(bmpWater, tileR);
+							break;
+						}
+					}
+				}
+			}
+		}
 
 
 
 
 
+
+
+		// DRAW THINGS *************************************************
+
+
+
+
+		////////////////////////////////////////////////////////////////
+
+		Draw->EndDraw();
+	}
 
 	ClearResources();
 	std::remove(tmp_file);
